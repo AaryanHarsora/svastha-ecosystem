@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svastha — Marketplace</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="index.html">Svastha</a>
+        <a href="index.html">Dashboard</a>
+        <a href="patient.html">Patients</a>
+        <a href="medications.html">Medications</a>
+        <a href="marketplace.html" class="active">Marketplace</a>
+    </nav>
+
+    <div class="container">
+        <div class="page-title">Marketplace</div>
+        <div class="page-subtitle">Inventory, stock levels, vendors and order analytics</div>
+
+        <!-- Order stats -->
+        <div class="stats-grid" id="order-stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-value blue" id="s-orders">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Revenue</div>
+                <div class="stat-value green" id="s-revenue">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Order Value</div>
+                <div class="stat-value" id="s-avg">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Inventory Items</div>
+                <div class="stat-value orange" id="s-inv">—</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+            <button class="btn btn-primary" onclick="showTab('stock')">Stock Availability</button>
+            <button class="btn btn-outline" onclick="showTab('vendors')">Vendors</button>
+            <button class="btn btn-outline" onclick="showTab('orders')">Orders per Patient</button>
+        </div>
+
+        <!-- Stock -->
+        <div id="tab-stock">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Stock Availability</div>
+                </div>
+                <div id="stock-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendors -->
+        <div id="tab-vendors" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Vendor Supply List</div>
+                </div>
+                <div id="vendor-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders per patient -->
+        <div id="tab-orders" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Orders per Patient</div>
+                </div>
+                <div id="orders-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/api.js"></script>
+    <script src="../static/app.js"></script>
+    <script>
+        function showTab(tab) {
+            ["stock", "vendors", "orders"].forEach(t => {
+                document.getElementById("tab-" + t).style.display = t === tab ? "block" : "none";
+            });
+        }
+
+        async function load() {
+            // Stats
+            const [summary, inv] = await Promise.all([api.ordersSummary(), api.inventory()]);
+            document.getElementById("s-orders").textContent = summary.total_orders;
+            document.getElementById("s-revenue").textContent = "₹" + Number(summary.total_revenue).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            document.getElementById("s-avg").textContent = "₹" + Number(summary.avg_order_value).toFixed(2);
+            document.getElementById("s-inv").textContent = inv.unique_medications;
+
+            // Stock
+            const stock = await api.stock();
+            const stockEl = document.getElementById("stock-table");
+            stockEl.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Medication</th><th>Category</th><th>Strength</th><th>Vendor</th><th>Price</th><th>Stock</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          ${stock.stock.map(s => `<tr>
+            <td><strong>${s.medication_name}</strong></td>
+            <td><span class="badge badge-blue">${s.category}</span></td>
+            <td>${s.strength || "—"}</td>
+            <td>${s.vendor_name}</td>
+            <td>₹${s.price}</td>
+            <td>${s.stock}</td>
+            <td>${stockBadge(s.stock_status)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+
+            // Vendors
+            const vendors = await api.vendors();
+            renderTable("vendor-table", vendors.vendors,
+                ["vendor_name", "contact_person", "medicines_supplied", "total_stock", "lowest_price", "highest_price"]);
+
+            // Orders per patient
+            const orders = await api.ordersPerPatient();
+            const ordersEl = document.getElementById("orders-table");
+            ordersEl.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Patient</th><th>Total Orders</th><th>Total Spent</th><th>Last Order</th>
+        </tr></thead>
+        <tbody>
+          ${orders.patients.map(p => `<tr>
+            <td><strong>${p.patient_name}</strong></td>
+            <td>${p.total_orders}</td>
+            <td>₹${Number(p.total_spent || 0).toFixed(2)}</td>
+            <td>${p.last_order_date ? new Date(p.last_order_date).toLocaleDateString("en-IN") : "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+        }
+
+        load().catch(console.error);
+    </script>
+</body>
+
+</html>

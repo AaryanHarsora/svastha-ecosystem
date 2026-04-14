@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svastha — Medications</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="index.html">Svastha</a>
+        <a href="index.html">Dashboard</a>
+        <a href="patient.html">Patients</a>
+        <a href="medications.html" class="active">Medications</a>
+        <a href="marketplace.html">Marketplace</a>
+    </nav>
+
+    <div class="container">
+        <div class="page-title">Medications</div>
+        <div class="page-subtitle">All medications, top sellers and cheapest per category</div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+            <button class="btn btn-primary" onclick="showTab('all')">All Medications</button>
+            <button class="btn btn-outline" onclick="showTab('top')">Top Selling</button>
+            <button class="btn btn-outline" onclick="showTab('cheap')">Cheapest per Category</button>
+            <button class="btn btn-outline" onclick="showTab('map')">Disease Map</button>
+        </div>
+
+        <!-- All medications -->
+        <div id="tab-all">
+            <div class="search-bar">
+                <input type="text" id="med-search" placeholder="Search medications..." oninput="filterMeds()">
+                <button class="btn btn-primary" onclick="openMedModal()" style="margin-left:auto">+ Add Medication</button>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">All Medications</div>
+                    <span id="med-count" class="badge badge-blue"></span>
+                </div>
+                <div id="med-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top selling -->
+        <div id="tab-top" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Top Selling Medications</div>
+                    <span class="badge badge-green">by quantity</span>
+                </div>
+                <div id="top-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cheapest per category -->
+        <div id="tab-cheap" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Cheapest Available per Category</div>
+                    <span class="badge badge-orange">in stock only</span>
+                </div>
+                <div id="cheap-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disease map -->
+        <div id="tab-map" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Disease → Medication Map</div>
+                </div>
+                <div id="map-table">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Medication Modal -->
+    <div class="modal-overlay" id="med-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="card-title">Add Medication</div>
+                <button class="modal-close" onclick="document.getElementById('med-modal').classList.remove('open')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="med-form" onsubmit="handleMedSubmit(event)">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="med-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Generic Name</label>
+                            <input type="text" id="med-generic">
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="med-category" required>
+                                <option value="Cardiology">Cardiology</option>
+                                <option value="Neurology">Neurology</option>
+                                <option value="Endocrinology">Endocrinology</option>
+                                <option value="Psychiatry">Psychiatry</option>
+                                <option value="Gastroenterology">Gastroenterology</option>
+                                <option value="Oncology">Oncology</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Dosage Form</label>
+                            <select id="med-form-type">
+                                <option value="Tablet">Tablet</option>
+                                <option value="Capsule">Capsule</option>
+                                <option value="Injection">Injection</option>
+                                <option value="Syrup">Syrup</option>
+                                <option value="Ointment">Ointment</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Strength (e.g. 500mg)</label>
+                            <input type="text" id="med-strength">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <textarea id="med-desc" rows="3"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Save Medication</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/api.js"></script>
+    <script src="../static/app.js"></script>
+    <script>
+        let allMeds = [];
+
+        function showTab(tab) {
+            ["all", "top", "cheap", "map"].forEach(t => {
+                document.getElementById("tab-" + t).style.display = t === tab ? "block" : "none";
+            });
+        }
+
+        async function load() {
+            // All meds
+            const data = await api.medications();
+            allMeds = data.medications;
+            document.getElementById("med-count").textContent = allMeds.length + " medications";
+            renderMeds(allMeds);
+
+            // Top selling
+            const top = await api.topSelling(10);
+            renderTable("top-table", top.medications, ["medication_name", "category", "total_qty_sold", "total_revenue"]);
+
+            // Cheapest
+            const cheap = await api.cheapestPerCategory();
+            renderTable("cheap-table", cheap.medications, ["category", "medication_name", "min_price", "stock"]);
+
+            // Disease map
+            const map = await api.diseases();
+            renderTable("map-table", map.diseases,
+                ["disease_name", "disease_category", "medication_name", "medication_category", "strength"]);
+        }
+
+        function renderMeds(list) {
+            const el = document.getElementById("med-table");
+            if (!list.length) { el.innerHTML = `<div class="empty">No medications found</div>`; return; }
+            el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Generic Name</th><th>Category</th><th>Form</th><th>Strength</th>
+        </tr></thead>
+        <tbody>
+          ${list.map(m => `<tr>
+            <td><strong>${m.name}</strong></td>
+            <td style="color:var(--text-muted)">${m.generic_name || "—"}</td>
+            <td><span class="badge badge-blue">${m.category}</span></td>
+            <td>${m.dosage_form || "—"}</td>
+            <td>${m.strength || "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+        }
+
+        function filterMeds() {
+            const q = document.getElementById("med-search").value.toLowerCase();
+            renderMeds(allMeds.filter(m =>
+                m.name.toLowerCase().includes(q) || (m.category || "").toLowerCase().includes(q)
+            ));
+        }
+
+        function openMedModal() {
+            document.getElementById("med-form").reset();
+            document.getElementById("med-modal").classList.add("open");
+        }
+
+        async function handleMedSubmit(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById("med-name").value,
+                generic_name: document.getElementById("med-generic").value || null,
+                category: document.getElementById("med-category").value,
+                dosage_form: document.getElementById("med-form-type").value || null,
+                strength: document.getElementById("med-strength").value || null,
+                description: document.getElementById("med-desc").value || null
+            };
+            try {
+                await api.createMedication(data);
+                document.getElementById("med-modal").classList.remove("open");
+                await load(); // reload data
+            } catch (err) { alert(err); }
+        }
+
+        load().catch(console.error);
+    </script>
+</body>
+
+</html>

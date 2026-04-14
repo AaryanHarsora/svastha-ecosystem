@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svastha — Patients</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="index.html">Svastha</a>
+        <a href="index.html">Dashboard</a>
+        <a href="patient.html" class="active">Patients</a>
+        <a href="medications.html">Medications</a>
+        <a href="marketplace.html">Marketplace</a>
+    </nav>
+
+    <div class="container">
+        <div class="page-title">Patients</div>
+        <div class="page-subtitle">Click any row to view risk score, symptoms, appointments and orders</div>
+
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Search by name..." oninput="filterPatients()">
+            <button class="btn btn-outline" onclick="loadNoDisease()">No Disease Recorded</button>
+            <button class="btn btn-primary" onclick="openRegisterModal()" style="margin-left:auto">+ Register Patient</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">All Patients</div>
+                <span id="patient-count" class="badge badge-blue"></span>
+            </div>
+            <div id="patient-table">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient detail modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="card-title" id="modal-name">Patient Detail</div>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+
+            <div class="modal-body">
+            <!-- Risk scores -->
+            <div style="margin-bottom:20px">
+                <div
+                    style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">
+                    Risk Scores</div>
+                <div id="risk-section">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Symptoms -->
+            <div style="margin-bottom:20px">
+                <div
+                    style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">
+                    Symptoms</div>
+                <div id="symptom-section">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Appointments -->
+            <div style="margin-bottom:20px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                    <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">
+                        Appointments</div>
+                    <button class="btn btn-outline" style="padding:4px 8px;font-size:11px" onclick="openAppointmentModal()">+ Book Appointment</button>
+                </div>
+                <div id="appt-section">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div>
+                <div
+                    style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">
+                    Recommended Medications</div>
+                <div id="rec-section">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Patient Modal -->
+    <div class="modal-overlay" id="register-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="card-title">Register Patient</div>
+                <button class="modal-close" onclick="document.getElementById('register-modal').classList.remove('open')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="register-form" onsubmit="handleRegister(event)">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="reg-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Age</label>
+                            <input type="number" id="reg-age" required min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Gender</label>
+                            <select id="reg-gender" required>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Blood Group</label>
+                            <select id="reg-blood">
+                                <option value="">Unknown</option>
+                                <option value="A+">A+</option>
+                                <option value="O+">O+</option>
+                                <option value="B+">B+</option>
+                                <option value="AB+">AB+</option>
+                                <option value="A-">A-</option>
+                                <option value="O-">O-</option>
+                                <option value="B-">B-</option>
+                                <option value="AB-">AB-</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" id="reg-phone">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="reg-email">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="reg-address">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Save Patient</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Book Appointment Modal -->
+    <div class="modal-overlay" id="appointment-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="card-title">Book Appointment</div>
+                <button class="modal-close" onclick="document.getElementById('appointment-modal').classList.remove('open')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="appointment-form" onsubmit="handleAppointment(event)">
+                    <div class="form-group">
+                        <label>Select Doctor & Hospital</label>
+                        <select id="appt-doctor" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="appt-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (Optional)</label>
+                        <textarea id="appt-notes" rows="3"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Book Appointment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/api.js"></script>
+    <script src="../static/app.js"></script>
+    <script>
+        let allPatients = [];
+
+        async function load() {
+            const data = await api.patients();
+            allPatients = data.patients;
+            document.getElementById("patient-count").textContent = allPatients.length + " patients";
+            renderPatients(allPatients);
+        }
+
+        function renderPatients(list) {
+            const el = document.getElementById("patient-table");
+            if (!list.length) { el.innerHTML = `<div class="empty">No patients found</div>`; return; }
+            el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Age</th><th>Gender</th><th>Blood Group</th><th>Phone</th>
+        </tr></thead>
+        <tbody>
+          ${list.map(p => `
+            <tr onclick="openModal('${p.patient_id}','${p.name}')">
+              <td><strong>${p.name}</strong></td>
+              <td>${p.age}</td>
+              <td>${p.gender}</td>
+              <td><span class="badge badge-gray">${p.blood_group || "—"}</span></td>
+              <td>${p.phone || "—"}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+        }
+
+        function filterPatients() {
+            const q = document.getElementById("search").value.toLowerCase();
+            renderPatients(allPatients.filter(p => p.name.toLowerCase().includes(q)));
+        }
+
+        async function openModal(id, name) {
+            currentPatientId = id;
+            document.getElementById("modal-name").textContent = name;
+            document.getElementById("modal").classList.add("open");
+
+            // Risk
+            try {
+                const r = await api.patientRisk(id);
+                document.getElementById("risk-section").innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${["heart", "cardio", "kidney", "overall"].map(k => `
+          <div style="background:var(--bg);border-radius:8px;padding:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:capitalize">${k} Score</div>
+            <div style="font-size:20px;font-weight:700;color:${riskColor(r[k + '_score'])}">${r[k + '_score']}</div>
+            <div class="risk-bar"><div class="risk-fill" style="width:${r[k + '_score']}%;background:${riskColor(r[k + '_score'])}"></div></div>
+          </div>`).join("")}
+      </div>`;
+            } catch { document.getElementById("risk-section").innerHTML = `<div class="empty">No risk data</div>`; }
+
+            // Symptoms
+            try {
+                const s = await api.patientSymptoms(id);
+                document.getElementById("symptom-section").innerHTML = s.symptoms.length
+                    ? s.symptoms.map(sym => `<span class="badge badge-blue" style="margin:3px">${sym.symptom}</span>`).join("")
+                    : `<div class="empty">No symptoms recorded</div>`;
+            } catch { document.getElementById("symptom-section").innerHTML = `<div class="empty">—</div>`; }
+
+            // Appointments
+            try {
+                const a = await api.patientAppointments(id);
+                document.getElementById("appt-section").innerHTML = a.appointments.length
+                    ? `<div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Doctor</th><th>Hospital</th><th>Status</th></tr></thead>
+          <tbody>${a.appointments.map(ap => `
+            <tr>
+              <td>${ap.appointment_date}</td>
+              <td>${ap.doctor_name}<br><span style="font-size:11px;color:var(--text-muted)">${ap.specialization}</span></td>
+              <td>${ap.hospital_name}</td>
+              <td>${statusBadge(ap.status)}</td>
+            </tr>`).join("")}
+          </tbody></table></div>`
+                    : `<div class="empty">No appointments</div>`;
+            } catch { document.getElementById("appt-section").innerHTML = `<div class="empty">—</div>`; }
+
+            // Recommendations
+            try {
+                const rec = await api.recommendations(id);
+                document.getElementById("rec-section").innerHTML = rec.recommendations.length
+                    ? rec.recommendations.map(r => `
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div><strong>${r.medication_name}</strong> <span style="color:var(--text-muted);font-size:12px">${r.strength || ""}</span><br>
+            <span style="font-size:11px;color:var(--text-muted)">${r.disease_name} — ${r.category}</span></div>
+            <span class="badge badge-gray">${r.dosage_form || "—"}</span>
+          </div>`).join("")
+                    : `<div class="empty">No recommendations</div>`;
+            } catch { document.getElementById("rec-section").innerHTML = `<div class="empty">No recommendations</div>`; }
+        }
+
+        function closeModal() {
+            document.getElementById("modal").classList.remove("open");
+        }
+
+        async function loadNoDisease() {
+            const data = await api.noDisease();
+            renderPatients(data.patients);
+            document.getElementById("patient-count").textContent = data.patients.length + " (no disease)";
+        }
+
+        /* CRUD logic */
+        let currentPatientId = null;
+
+        function openRegisterModal() {
+            document.getElementById("register-form").reset();
+            document.getElementById("register-modal").classList.add("open");
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById("reg-name").value,
+                age: parseInt(document.getElementById("reg-age").value),
+                gender: document.getElementById("reg-gender").value,
+                blood_group: document.getElementById("reg-blood").value || null,
+                phone: document.getElementById("reg-phone").value || null,
+                email: document.getElementById("reg-email").value || null,
+                address: document.getElementById("reg-address").value || null
+            };
+            try {
+                await api.createPatient(data);
+                document.getElementById("register-modal").classList.remove("open");
+                await load(); // refresh list
+            } catch (err) { alert(err); }
+        }
+
+        async function openAppointmentModal() {
+            if(!currentPatientId) return;
+            document.getElementById("appointment-form").reset();
+            
+            // fetch doctors
+            try {
+                const res = await api.doctors();
+                const sel = document.getElementById("appt-doctor");
+                sel.innerHTML = res.doctors.map(d => 
+                    `<option value="${d.doctor_id}|${d.hospital_name}">${d.name} (${d.specialization}) - ${d.hospital_name}</option>`
+                ).join("");
+            } catch(e) { console.error(e); }
+
+            document.getElementById("appointment-modal").classList.add("open");
+        }
+
+        async function handleAppointment(e) {
+            e.preventDefault();
+            const docVal = document.getElementById("appt-doctor").value; // doctor_id|hospital_name
+            const doctorId = docVal.split("|")[0];
+            
+            const data = {
+                patient_id: currentPatientId,
+                doctor_id: doctorId,
+                hospital_id: "78f7737d-2b47-495f-95f2-95f32fe6c310", // Using a fallback, ideally we map doctor to hospital id dynamically, but backend accepts any for now
+                appointment_date: document.getElementById("appt-date").value,
+                notes: document.getElementById("appt-notes").value || null
+            };
+
+            // Quick hack: Hospital ID mapping is complex without a huge map, 
+            // wait, we can just grab the hospital_id directly if we adjust the value. 
+            // Let's fetch hospitals to find the mapped ID!
+            const hRes = await api.hospitals();
+            const hName = docVal.split("|")[1];
+            const h = hRes.hospitals.find(hx => hx.name === hName);
+            data.hospital_id = h ? h.hospital_id : hRes.hospitals[0].hospital_id;
+
+            try {
+                await api.createAppointment(data);
+                document.getElementById("appointment-modal").classList.remove("open");
+                // refresh exactly this patient modal viewing
+                // by re-running the patient modal data fetch!
+                openModal(currentPatientId, document.getElementById("modal-name").textContent);
+            } catch (err) { alert(err); }
+        }
+
+        load().catch(console.error);
+    </script>
+</body>
+
+</html>

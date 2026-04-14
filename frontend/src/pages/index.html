@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svastha — Dashboard</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="index.html">Svastha</a>
+        <a href="index.html" class="active">Dashboard</a>
+        <a href="patient.html">Patients</a>
+        <a href="medications.html">Medications</a>
+        <a href="marketplace.html">Marketplace</a>
+    </nav>
+
+    <div class="container">
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">Medical Recommendation & Pharmacy Marketplace</div>
+
+        <!-- Stat cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Patients</div>
+                <div class="stat-value blue" id="stat-patients">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Revenue</div>
+                <div class="stat-value green" id="stat-revenue">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-value" id="stat-orders">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Medicines in Stock</div>
+                <div class="stat-value orange" id="stat-stock">—</div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <!-- High risk patients -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">High Risk Patients</div>
+                    <span class="badge badge-red">score &gt; 70</span>
+                </div>
+                <div class="card-body" id="high-risk-list">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Disease distribution -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Disease Distribution</div>
+                </div>
+                <div class="card-body" id="disease-dist">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top selling medications -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Top Selling Medications</div>
+            </div>
+            <div id="top-meds">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Vendor summary -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Vendor Supply Summary</div>
+            </div>
+            <div id="vendor-table">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/api.js"></script>
+    <script src="../static/app.js"></script>
+    <script>
+        async function load() {
+            // Stats
+            const [patients, orders, inv] = await Promise.all([
+                api.patients(), api.ordersSummary(), api.inventory()
+            ]);
+            document.getElementById("stat-patients").textContent = patients.patients.length;
+            document.getElementById("stat-revenue").textContent = "₹" + Number(orders.total_revenue).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+            document.getElementById("stat-orders").textContent = orders.total_orders;
+            document.getElementById("stat-stock").textContent = inv.total_stock_units;
+
+            // High risk
+            const hr = await api.highRiskPatients(70);
+            const hrEl = document.getElementById("high-risk-list");
+            if (!hr.patients.length) {
+                hrEl.innerHTML = `<div class="empty">No high-risk patients</div>`;
+            } else {
+                hrEl.innerHTML = hr.patients.map(p => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:600">${p.name}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${p.gender}, Age ${p.age}</div>
+        </div>
+        <div style="text-align:right">
+          ${riskBadge(p.overall_score)}
+          <div class="risk-bar" style="width:80px;margin-top:4px">
+            <div class="risk-fill" style="width:${p.overall_score}%;background:${riskColor(p.overall_score)}"></div>
+          </div>
+        </div>
+      </div>`).join("");
+            }
+
+            // Disease distribution
+            const dd = await api.diseasePatientCount();
+            document.getElementById("disease-dist").innerHTML = dd.diseases.map(d => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:500">${d.disease_name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${d.category}</div>
+      </div>
+      <span class="badge badge-blue">${d.patient_count} patients</span>
+    </div>`).join("");
+
+            // Top meds
+            const tm = await api.topSelling(5);
+            renderTable("top-meds", tm.medications,
+                ["medication_name", "category", "total_qty_sold", "total_revenue"]);
+
+            // Vendors
+            const v = await api.vendors();
+            renderTable("vendor-table", v.vendors,
+                ["vendor_name", "contact_person", "medicines_supplied", "total_stock", "lowest_price", "highest_price"]);
+        }
+
+        load().catch(e => console.error(e));
+    </script>
+</body>
+
+</html>
