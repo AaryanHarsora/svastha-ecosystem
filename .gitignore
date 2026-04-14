@@ -74,4 +74,4 @@ uvicorn.log
 # ─── Testing ──────────────────────────────────────────────────
 .pytest_cache/
 .coverage
-htmlcov/
+htmlcov/data/raw/cardio_train.csv
