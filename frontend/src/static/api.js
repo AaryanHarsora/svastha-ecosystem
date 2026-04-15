@@ -12,7 +12,7 @@ const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Error"); }
         return res.json();
     },
     put: async (path, data) => {
@@ -21,12 +21,12 @@ const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Error"); }
         return res.json();
     },
     delete: async (path) => {
         const res = await fetch(BASE + path, { method: "DELETE" });
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Error"); }
         return res.json();
     },
 
@@ -41,10 +41,21 @@ const api = {
     createPatient: (data) => api.post("/patients/", data),
     updatePatient: (id, data) => api.put(`/patients/${id}`, data),
     deletePatient: (id) => api.delete(`/patients/${id}`),
+    addSymptom: (id, symptom_id) => api.post(`/patients/${id}/symptoms`, { symptom_id }),
+    submitHealth: (id, data) => api.post(`/patients/${id}/health`, data),
 
-    // Diseases
+    // Diseases & Symptoms
     diseases: () => api.get("/diseases/"),
     diseasePatientCount: () => api.get("/diseases/patient-count"),
+    symptoms: () => api.get("/diseases/symptoms"),
+
+    // Appointments
+    appointments: () => api.get("/appointments/"),
+    doctors: () => api.get("/appointments/doctors"),
+    hospitals: () => api.get("/appointments/hospitals"),
+    createAppointment: (data) => api.post("/appointments/", data),
+    updateAppointment: (id, data) => api.put(`/appointments/${id}`, data),
+    deleteAppointment: (id) => api.delete(`/appointments/${id}`),
 
     // Medications
     medications: () => api.get("/medications/"),
@@ -54,12 +65,6 @@ const api = {
     updateMedication: (id, data) => api.put(`/medications/${id}`, data),
     deleteMedication: (id) => api.delete(`/medications/${id}`),
 
-    // Appointments (NEW)
-    appointments: () => api.get("/appointments/"),
-    doctors: () => api.get("/appointments/doctors"),
-    hospitals: () => api.get("/appointments/hospitals"),
-    createAppointment: (data) => api.post("/appointments/", data),
-
     // Marketplace
     inventory: () => api.get("/marketplace/inventory"),
     stock: () => api.get("/marketplace/stock"),
@@ -68,6 +73,7 @@ const api = {
     ordersPerPatient: () => api.get("/marketplace/orders/per-patient"),
     createOrder: (data) => api.post("/marketplace/orders", data),
     updateOrderStatus: (id, status) => api.put(`/marketplace/orders/${id}/status`, { status }),
+    cancelOrder: (id) => api.delete(`/marketplace/orders/${id}`),
     updateInventory: (id, data) => api.put(`/marketplace/inventory/${id}`, data),
 
     // Recommendations
