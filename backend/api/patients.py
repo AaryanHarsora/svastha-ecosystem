@@ -77,3 +77,94 @@ def delete_patient(patient_id: str, db: Session = Depends(get_db)):
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Patient not found")
     return {"message": "Patient deleted"}
+
+
+# ── ASSIGN SYMPTOM ───────────────────────────────────────────
+@router.post("/{patient_id}/symptoms")
+def add_symptom(patient_id: str, body: dict, db: Session = Depends(get_db)):
+    from sqlalchemy import text as t
+    symptom_id = body.get("symptom_id")
+    if not symptom_id:
+        raise HTTPException(status_code=400, detail="symptom_id required")
+    # check if already assigned
+    exists = db.execute(t("""
+        SELECT 1 FROM Patient_Symptoms
+        WHERE patient_id = :pid AND symptom_id = :sid
+    """), {"pid": patient_id, "sid": symptom_id}).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="Symptom already recorded")
+    db.execute(t("""
+        INSERT INTO Patient_Symptoms (patient_id, symptom_id, reported_on)
+        VALUES (:pid, :sid, CURDATE())
+    """), {"pid": patient_id, "sid": symptom_id})
+    db.commit()
+    return {"message": "Symptom added"}
+
+
+# ── SUBMIT HEALTH DATA + RISK SCORE ─────────────────────────
+@router.post("/{patient_id}/health")
+def submit_health(patient_id: str, body: dict, db: Session = Depends(get_db)):
+    import uuid as _uuid
+    from sqlalchemy import text as t
+
+    rid = str(_uuid.uuid4())
+    # Insert into Heart_Data with whatever fields are provided
+    db.execute(t("""
+        INSERT INTO Heart_Data
+        (record_id, patient_id, age, sex, cp, trestbps, chol, fbs, thalach, target)
+        VALUES (:rid, :pid, :age, :sex, :cp, :trestbps, :chol, :fbs, :thalach, :target)
+    """), {
+        "rid": rid,
+        "pid": patient_id,
+        "age":      body.get("age"),
+        "sex":      body.get("sex", 1),
+        "cp":       body.get("cp", 0),
+        "trestbps": body.get("bp"),
+        "chol":     body.get("chol"),
+        "fbs":      1 if body.get("fbs", False) else 0,
+        "thalach":  body.get("max_hr"),
+        "target":   body.get("target", 0),
+    })
+
+    # Calculate simple risk scores based on input
+    heart_s  = min(100, round(
+        (30 if body.get("target", 0) == 1 else 0) +
+        (20 if (body.get("chol") or 0) > 240 else 0) +
+        (15 if (body.get("bp") or 0) > 140 else 0) +
+        (10 if body.get("fbs") else 0), 2))
+
+    cardio_s = min(100, round(
+        (25 if (body.get("bp") or 0) > 140 else 0) +
+        (20 if (body.get("chol") or 0) > 240 else 0) +
+        (15 if body.get("smoke", False) else 0) +
+        (10 if body.get("alco", False) else 0), 2))
+
+    kidney_s = min(100, round(
+        (30 if body.get("htn", False) else 0) +
+        (25 if body.get("dm", False) else 0) +
+        (15 if (body.get("bp") or 0) > 140 else 0), 2))
+
+    overall = round((heart_s + cardio_s + kidney_s) / 3, 2)
+
+    # Upsert risk score
+    existing = db.execute(t(
+        "SELECT score_id FROM Risk_Scores WHERE patient_id = :pid"),
+        {"pid": patient_id}).first()
+
+    if existing:
+        db.execute(t("""
+            UPDATE Risk_Scores
+            SET heart_score=:hs, cardio_score=:cs, kidney_score=:ks, overall_score=:os
+            WHERE patient_id=:pid
+        """), {"hs": heart_s, "cs": cardio_s, "ks": kidney_s, "os": overall, "pid": patient_id})
+    else:
+        db.execute(t("""
+            INSERT INTO Risk_Scores
+            (score_id, patient_id, heart_score, cardio_score, kidney_score, overall_score)
+            VALUES (:sid, :pid, :hs, :cs, :ks, :os)
+        """), {"sid": str(_uuid.uuid4()), "pid": patient_id,
+               "hs": heart_s, "cs": cardio_s, "ks": kidney_s, "os": overall})
+
+    db.commit()
+    return {"message": "Health data saved", "heart_score": heart_s,
+            "cardio_score": cardio_s, "kidney_score": kidney_s, "overall_score": overall}
