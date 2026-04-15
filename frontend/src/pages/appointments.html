@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svastha — Appointments</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+
+    <nav>
+        <a class="nav-brand" href="index.html">Svastha</a>
+        <a href="index.html">Dashboard</a>
+        <a href="patient.html">Patients</a>
+        <a href="medications.html">Medications</a>
+        <a href="marketplace.html">Marketplace</a>
+        <a href="appointments.html" class="active">Appointments</a>
+    </nav>
+
+    <div class="container">
+        <div class="page-title">Appointments</div>
+        <div class="page-subtitle">All scheduled, completed and cancelled appointments</div>
+
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Search by patient or doctor..." oninput="filterAppts()">
+            <select id="status-filter" onchange="filterAppts()"
+                style="padding:10px 14px;border:2px solid var(--border);font-family:inherit;font-weight:600;background:#fff;font-size:13px">
+                <option value="">All Statuses</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">All Appointments</div>
+                <span id="appt-count" class="badge badge-blue"></span>
+            </div>
+            <div id="appt-table">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Status Modal -->
+    <div class="modal-overlay" id="status-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="card-title">Update Appointment</div>
+                <button class="modal-close"
+                    onclick="document.getElementById('status-modal').classList.remove('open')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="status-patient-name" style="font-weight:800;font-size:16px;margin-bottom:20px"></p>
+                <form id="status-form" onsubmit="handleStatusUpdate(event)">
+                    <div class="form-group">
+                        <label>Update Status</label>
+                        <select id="new-status" required>
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-danger" onclick="handleDelete()">Delete</button>
+                        <button type="submit" class="btn btn-success">Update Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/api.js"></script>
+    <script src="../static/app.js"></script>
+    <script>
+        let allAppts = [];
+        let currentApptId = null;
+
+        async function load() {
+            const data = await api.appointments();
+            allAppts = data.appointments;
+            document.getElementById("appt-count").textContent = allAppts.length + " appointments";
+            renderAppts(allAppts);
+        }
+
+        function renderAppts(list) {
+            const el = document.getElementById("appt-table");
+            if (!list.length) { el.innerHTML = `<div class="empty">No appointments found</div>`; return; }
+            el.innerHTML = `
+        <div class="table-wrap"><table>
+            <thead><tr>
+                <th>Patient</th><th>Doctor</th><th>Specialization</th><th>Hospital</th><th>Date</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+                ${list.map(a => `<tr>
+                    <td><strong>${a.patient_name}</strong></td>
+                    <td>${a.doctor_name}</td>
+                    <td><span class="badge badge-blue">${a.specialization}</span></td>
+                    <td>${a.hospital_name}<br><span style="font-size:11px;color:var(--text-muted)">${a.city}</span></td>
+                    <td>${a.appointment_date}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding:4px 10px;font-size:11px"
+                            onclick="openStatusModal('${a.appointment_id}','${a.patient_name}','${a.status}')">
+                            Edit
+                        </button>
+                    </td>
+                </tr>`).join("")}
+            </tbody>
+        </table></div>`;
+        }
+
+        function filterAppts() {
+            const q = document.getElementById("search").value.toLowerCase();
+            const s = document.getElementById("status-filter").value;
+            renderAppts(allAppts.filter(a =>
+                (a.patient_name.toLowerCase().includes(q) || a.doctor_name.toLowerCase().includes(q)) &&
+                (!s || a.status === s)
+            ));
+        }
+
+        function openStatusModal(id, name, status) {
+            currentApptId = id;
+            document.getElementById("status-patient-name").textContent = name;
+            document.getElementById("new-status").value = status;
+            document.getElementById("status-modal").classList.add("open");
+        }
+
+        async function handleStatusUpdate(e) {
+            e.preventDefault();
+            const status = document.getElementById("new-status").value;
+            try {
+                await api.updateAppointment(currentApptId, { status });
+                document.getElementById("status-modal").classList.remove("open");
+                await load();
+            } catch (err) { alert("Error: " + err.message); }
+        }
+
+        async function handleDelete() {
+            if (!confirm("Delete this appointment?")) return;
+            try {
+                await api.deleteAppointment(currentApptId);
+                document.getElementById("status-modal").classList.remove("open");
+                await load();
+            } catch (err) { alert("Error: " + err.message); }
+        }
+
+        load().catch(console.error);
+    </script>
+</body>
+
+</html>
