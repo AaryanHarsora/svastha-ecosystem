@@ -1,7 +1,10 @@
 <div align="center">
 
 <!-- Animated Header Banner -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1D9E75,100:085041&height=200&section=header&text=Svastha&fontSize=80&fontColor=ffffff&fontAlignY=35&desc=Medical%20Recommendation%20%26%20Pharmacy%20Marketplace&descAlignY=55&descSize=20&animation=fadeIn" width="100%"/>
+
+<!-- Typing Animation -->
+<a href="https://git.io/typing-svg">
+
 
 <!-- Typing Animation -->
 <a href="https://git.io/typing-svg">
